@@ -5,12 +5,12 @@
 มีการจัดการฐานข้อมูลด้วย Sequelize (ORM) รองรับทั้ง Migration และ Seeder
 ระบบยืนยันตัวตนใช้ JWT (JSON Web Token) และมีการเขียน Unit Test ด้วย Jest
 
-✨ Features
-RESTful API ด้วย Express
-Real-time communication ผ่าน WebSocket
-Database management ด้วย Sequelize + Migration + Seeder
-Authentication system ด้วย JWT
-Unit Testing ด้วย Jest
+## ✨ Features
+- **RESTful API** ด้วย Express  
+- **Real-time communication** ผ่าน WebSocket  
+- **Database management** ด้วย Sequelize + Migration + Seeder  
+- **Authentication system** ด้วย JWT  
+- **Unit Testing** ด้วย Jest  
 
 ก่อนเริ่มต้นควรติดตั้ง:
 Node.js(>= 18.x)
