@@ -16,7 +16,7 @@ exports.createUser = async ({ name, username, email, password }) => {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  await User.create({
+  const newUser = await User.create({
     name,
     username,
     email,
@@ -25,7 +25,8 @@ exports.createUser = async ({ name, username, email, password }) => {
 
   return {
     isError: false,
-    message: "User created successfully"
+    message: "User created successfully",
+    id: newUser.id
   };
 };
 

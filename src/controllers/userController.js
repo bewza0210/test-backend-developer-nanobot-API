@@ -21,7 +21,7 @@ exports.updateUser = async (req, res) => {
   } catch (err) {
     console.error(err.message);
     if (err.statusCode) return res.status(err.statusCode).json({ isError: true ,message: err.message });
-    res.status(500).json({ isError: true ,message: 'Failed to update user' });
+    res.status(500).json({ isError: true ,message: 'Internal server error.' });
   }
 };
 
@@ -35,7 +35,7 @@ exports.changePassword = async (req, res) => {
   } catch (err) {
     console.error(err.message);
     if (err.statusCode) return res.status(err.statusCode).json({ isError: true ,message: err.message });
-    res.status(500).json({ isError: true ,message: 'Failed to update user' });
+    res.status(500).json({ isError: true ,message: 'Internal server error.' });
   }
 };
 

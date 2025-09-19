@@ -3,7 +3,7 @@ const authService = require('../services/authService');
 exports.register = async (req, res) => {
   try {
     const user = await authService.createUser(req.body);
-    res.status(201).json(user);
+    res.status(200).json({ isError: false, message: 'Register Success.', body: { newUserId: user.id } });
   } catch (err) {
     console.error(err);
     if (err.statusCode) return res.status(err.statusCode).json({ isError: true ,message: err.message });
@@ -33,7 +33,7 @@ exports.login = async (req, res) => {
   } catch (err) {
     console.error(err.message);
     if (err.statusCode) return res.status(err.statusCode).json({ isError: true ,message: err.message });
-    res.status(500).json({ isError: true ,message: 'Failed to update user' });
+    res.status(500).json({ isError: true ,message: 'Internal server error.' });
   }
 };
 
@@ -44,16 +44,28 @@ exports.profile = async (req, res) => {
   } catch (err) {
     console.error(err.message);
     if (err.statusCode) return res.status(err.statusCode).json({ isError: true ,message: err.message });
-    res.status(500).json({ isError: true ,message: 'Failed to update user' });
+    res.status(500).json({ isError: true ,message: 'Internal server error.' });
   }
 };
 
 exports.logout = async (req, res) => {
   try {
-    res.json({ isError: false,  message: 'Logout success', user });
+    res.clearCookie('accessToken', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Strict'
+    });
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Strict'
+    });
+
+    res.json({ isError: false, message: 'Logout success' });
   } catch (err) {
     console.error(err.message);
-    if (err.statusCode) return res.status(err.statusCode).json({ isError: true ,message: err.message });
-    res.status(500).json({ isError: true ,message: 'Failed to update user' });
+    if (err.statusCode)
+      return res.status(err.statusCode).json({ isError: true, message: err.message });
+    res.status(500).json({ isError: true, message: 'Failed to logout' });
   }
 };

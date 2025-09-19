@@ -14,13 +14,15 @@ const sequelize = new Sequelize(
 );
 
 const User = require('./user')(sequelize, Sequelize.DataTypes);
-const TickerPrice = require('./tickerPrice')(sequelize, Sequelize.DataTypes);
+const CryptoPriceHistory = require('./cryptoPriceHistory')(sequelize, Sequelize.DataTypes);
+const CryptoPriceLatest = require('./cryptoPriceLatest')(sequelize, Sequelize.DataTypes);
 
 const db = {
   sequelize,
   Sequelize,
   User,
-  TickerPrice
+  CryptoPriceHistory,
+  CryptoPriceLatest
 };
 
 Object.values(db).forEach((model) => {

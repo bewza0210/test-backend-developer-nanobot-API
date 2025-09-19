@@ -76,12 +76,6 @@ router.get('/profile', auth.me, authController.profile);
  *   post:
  *     summary: Logout
  *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/Auth'
  *     responses:
  *       200:
  *         description: Logout success.

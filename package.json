@@ -7,11 +7,12 @@
     "test": "jest --runInBand",
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "migrate": "npx sequelize-cli db:migrate",
+    "seed:all": "npx sequelize-cli db:seed:all",
+    "migrate": "npx sequelize-cli db:migrate && npm run seed:all",
     "migrate:undo": "npx sequelize-cli db:migrate:undo",
     "migrate:undo:all": "npx sequelize-cli db:migrate:undo:all",
     "migrate:status": "npx sequelize-cli db:migrate:status",
-    "migrate:reset": "npm run migrate:undo:all && npm run migrate"
+    "migrate:reset": "npm run migrate:undo:all && npm run migrate && npm run seed:all"
   },
   "keywords": [],
   "author": "",
