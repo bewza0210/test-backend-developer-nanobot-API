@@ -6,6 +6,7 @@
 ระบบยืนยันตัวตนใช้ JWT (JSON Web Token) และมีการเขียน Unit Test ด้วย Jest
 
 ## ✨ Features
+- **Swagger API DOC** สำหรับเอกสาร API Document
 - **RESTful API** ด้วย Express  
 - **Real-time communication** ผ่าน WebSocket  
 - **Database management** ด้วย Sequelize + Migration + Seeder  
