@@ -31,7 +31,7 @@ server.listen(PORT, async () => {
     logger.info(`You can see API docs http://localhost:${PORT}/api-docs`);
 
     cryptoPriceLatestService.startPriceFetcher();
-    cryptoPriceHistoryService.startPriceHistoryFetcher();
+    cryptoPriceHistoryService.start();
   } catch (err) {
     logger.error('Database connection failed:', err);
     process.exit(1);

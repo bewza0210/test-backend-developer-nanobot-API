@@ -1,56 +1,98 @@
-const axios = require('axios');
 const { CryptoPriceHistory } = require('../models/');
 const logger = require('../plugins/logger');
 const { Op } = require('sequelize');
 const WebSocket = require('ws');
 
 const SYMBOLS = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT'];
-const INTERVAL_SEC = 3; // group data ทุก 3 วินาที
+const INTERVAL_SEC = 5;
 let wss = null;
+let buffers = {}; // เก็บ trade buffer ตาม symbol
 
 /**
- * Fetch ticker data from Binance API
+ * Start Binance WebSocket stream for trades
  */
-async function fetchTicker(symbol) {
-  try {
-    const res = await axios.get(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`);
-    return {
-      open_price: parseFloat(res.data.openPrice),
-      high_price: parseFloat(res.data.highPrice),
-      low_price: parseFloat(res.data.lowPrice),
-      close_price: parseFloat(res.data.lastPrice),
-      volume: parseFloat(res.data.volume),
+function startBinanceWS() {
+  SYMBOLS.forEach(symbol => {
+    const streamName = symbol.toLowerCase() + '@trade';
+    const url = `wss://stream.binance.com:9443/ws/${streamName}`;
+    const binanceWS = new WebSocket(url);
+
+    buffers[symbol] = [];
+
+    binanceWS.on('open', () => logger.info(`Connected to Binance WS for ${symbol}`));
+
+    binanceWS.on('message', (msg) => {
+      try {
+        const trade = JSON.parse(msg);
+        const record = {
+          price: parseFloat(trade.p),
+          qty: parseFloat(trade.q),
+          time: trade.T
+        };
+
+        buffers[symbol].push(record);
+
+        // logger.info(
+        //   `[${symbol}] WS trade => price=${record.price}, qty=${record.qty}, time=${new Date(record.time).toISOString()}`
+        // );
+      } catch (err) {
+        logger.error(`Parse error ${symbol}: ${err.message}`);
+      }
+    });
+
+    binanceWS.on('close', () => {
+      logger.warn(`Binance WS closed for ${symbol}, reconnecting...`);
+      setTimeout(() => startBinanceWS(symbol), 5000);
+    });
+
+    binanceWS.on('error', (err) => logger.error(`Binance WS error ${symbol}: ${err.message}`));
+  });
+}
+
+/**
+ * Aggregate buffer every INTERVAL_SEC
+ */
+async function aggregateAndSave() {
+  for (const symbol of SYMBOLS) {
+    const buffer = buffers[symbol];
+    if (!buffer || buffer.length === 0) continue;
+
+    const prices = buffer.map(t => t.price);
+    const volumes = buffer.map(t => t.qty);
+
+    const ohlcv = {
+      open_price: buffer[0].price,
+      high_price: Math.max(...prices),
+      low_price: Math.min(...prices),
+      close_price: buffer[buffer.length - 1].price,
+      volume: volumes.reduce((a, b) => a + b, 0),
+      interval_sec: INTERVAL_SEC,
+      timestamp: new Date()
     };
-  } catch (err) {
-    logger.error(`Error fetching ${symbol}: ${err.message}`);
-    return null;
+
+    try {
+      await CryptoPriceHistory.create({ symbol, ...ohlcv });
+      logger.info(`[${new Date().toISOString()}] Inserted CrptoHistory for ${symbol}: ${ohlcv.close_price}`);
+
+      // broadcast ไป client ทันที
+      broadcastToClients(symbol, ohlcv);
+    } catch (err) {
+      logger.error(`DB insert error for ${symbol}: ${err.message}`);
+    }
+
+    buffers[symbol] = []; // reset buffer
   }
 }
 
 /**
- * Insert a single price history record
+ * Broadcast data to connected WebSocket clients
  */
-async function insertPriceHistory(symbol) {
-  const ticker = await fetchTicker(symbol);
-  if (!ticker) return;
-
-  await CryptoPriceHistory.create({
-    symbol,
-    ...ticker,
-    interval_sec: INTERVAL_SEC,
-    timestamp: new Date(),
+function broadcastToClients(symbol, ohlcv) {
+  if (!wss) return;
+  const payload = JSON.stringify({ symbol, ...ohlcv });
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) client.send(payload);
   });
-
-  logger.info(`[${new Date().toISOString()}] Inserted history for ${symbol}: ${ticker.close_price}`);
-}
-
-/**
- * Periodically insert price history for all symbols
- */
-function startHistoryFetcher() {
-  setInterval(() => {
-    SYMBOLS.forEach(symbol => insertPriceHistory(symbol));
-  }, INTERVAL_SEC * 1000);
 }
 
 /**
@@ -69,49 +111,7 @@ async function cleanOldPriceHistory(days = 1) {
 }
 
 /**
- * Periodically clean old price history (every 24h)
- */
-function startCleanUpTask() {
-  setInterval(() => cleanOldPriceHistory(3), 24 * 60 * 60 * 1000);
-}
-
-/**
- * Broadcast latest prices to all connected WebSocket clients
- */
-async function broadcastLatestPrices() {
-  if (!wss) return;
-
-  for (const symbol of SYMBOLS) {
-    const latest = await CryptoPriceHistory.findOne({
-      where: { symbol },
-      order: [['timestamp', 'DESC']]
-    });
-    if (!latest) continue;
-
-    const payload = JSON.stringify({
-      symbol: latest.symbol,
-      open_price: parseFloat(latest.open_price),
-      high_price: parseFloat(latest.high_price),
-      low_price: parseFloat(latest.low_price),
-      close_price: parseFloat(latest.close_price),
-      timestamp: latest.timestamp
-    });
-
-    wss.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) client.send(payload);
-    });
-  }
-}
-
-/**
- * Start broadcasting prices every INTERVAL_SEC
- */
-function startBroadcast() {
-  setInterval(broadcastLatestPrices, INTERVAL_SEC * 1000);
-}
-
-/**
- * Initialize WebSocket server
+ * Init WebSocket server for clients
  */
 function initWebSocket(server) {
   wss = new WebSocket.Server({ server });
@@ -120,18 +120,16 @@ function initWebSocket(server) {
     logger.info('New WebSocket client connected');
     ws.on('close', () => logger.info('Client disconnected'));
   });
-
-  startBroadcast();
 }
 
 /**
  * Public API
  */
 module.exports = {
-  startPriceHistoryFetcher: () => {
-    startHistoryFetcher();
-    startCleanUpTask();
+  start: () => {
+    startBinanceWS();
+    setInterval(aggregateAndSave, INTERVAL_SEC * 1000);
+    setInterval(() => cleanOldPriceHistory(3), 24 * 60 * 60 * 1000);
   },
-  initWebSocket,
-  broadcastLatestPrices
+  initWebSocket
 };
